@@ -1,0 +1,310 @@
+<!DOCTYPE html>
+<html lang="uk">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Калькулятор коворкінгу — Креативний Квартал</title>
+
+  <!-- ===== СТИЛІ (CSS) — як калькулятор виглядає ===== -->
+  <style>
+    :root {
+      --bg: #1e2a48;
+      --card: #26355a;
+      --text: #f5f5f5;
+      --muted: #a9b4cc;
+      --accent: #ef8061;
+      --line: rgba(255, 255, 255, 0.1);
+    }
+
+    * { box-sizing: border-box; }
+    [hidden] { display: none !important; }
+
+    body {
+      margin: 0;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      line-height: 1.5;
+      padding: 32px 20px 64px;
+    }
+
+    .wrap { max-width: 520px; margin: 0 auto; }
+
+    .back { color: var(--muted); text-decoration: none; font-size: 15px; }
+    .back:hover { color: var(--text); }
+
+    h1 { font-size: 32px; line-height: 1.2; margin: 20px 0 8px; }
+    .subtitle { color: var(--muted); margin: 0 0 28px; }
+
+    .card {
+      background: var(--card);
+      border-radius: 20px;
+      padding: 24px;
+    }
+
+    .field { margin-bottom: 22px; }
+    .label { display: block; font-weight: 600; margin-bottom: 10px; }
+
+    /* Кнопки вибору тарифу */
+    .tariffs { display: grid; gap: 10px; }
+    .tariff {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      width: 100%;
+      padding: 14px 16px;
+      border-radius: 12px;
+      border: 2px solid var(--line);
+      background: transparent;
+      color: var(--text);
+      font-size: 16px;
+      cursor: pointer;
+      text-align: left;
+    }
+    .tariff small { color: var(--muted); font-size: 14px; }
+    .tariff.active { border-color: var(--accent); background: rgba(239, 128, 97, 0.12); }
+
+    /* Кількість: кнопки − і + */
+    .counter { display: flex; align-items: center; gap: 12px; }
+    .counter button {
+      width: 44px; height: 44px;
+      border-radius: 12px;
+      border: none;
+      background: rgba(255, 255, 255, 0.1);
+      color: var(--text);
+      font-size: 22px;
+      cursor: pointer;
+    }
+    .counter input {
+      width: 80px; height: 44px;
+      text-align: center;
+      font-size: 18px;
+      border-radius: 12px;
+      border: 2px solid var(--line);
+      background: transparent;
+      color: var(--text);
+    }
+    .unit { color: var(--muted); }
+
+    /* Додаткові послуги */
+    .extra {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 8px 0;
+      cursor: pointer;
+    }
+    .extra input { width: 20px; height: 20px; accent-color: var(--accent); }
+    .extra span:last-child { margin-left: auto; color: var(--muted); }
+
+    /* Підсумок */
+    .summary { border-top: 1px solid var(--line); padding-top: 18px; margin-top: 6px; }
+    .row { display: flex; justify-content: space-between; color: var(--muted); margin: 6px 0; }
+    .row.discount { color: #7ee2a8; }
+    .total {
+      display: flex;
+      justify-content: space-between;
+      align-items: baseline;
+      margin-top: 12px;
+      font-size: 18px;
+    }
+    .total strong { font-size: 36px; color: var(--accent); }
+
+    .note { color: var(--muted); font-size: 13px; margin-top: 16px; text-align: center; }
+  </style>
+</head>
+
+<body>
+  <!-- ===== HTML — що є на сторінці ===== -->
+  <div class="wrap">
+    <a href="../" class="back">← До портфоліо</a>
+
+    <h1>Скільки коштує місце в Креативному Кварталі?</h1>
+    <p class="subtitle">Обери тариф і термін — сума порахується одразу.</p>
+
+    <div class="card">
+
+      <div class="field">
+        <span class="label">Тариф</span>
+        <!-- Кнопки тарифів створює JavaScript нижче -->
+        <div class="tariffs" id="tariffs"></div>
+      </div>
+
+      <div class="field">
+        <span class="label">Скільки?</span>
+        <div class="counter">
+          <button type="button" id="minus">−</button>
+          <input type="number" id="amount" value="1" min="1">
+          <button type="button" id="plus">+</button>
+          <span class="unit" id="unit">днів</span>
+        </div>
+      </div>
+
+      <div class="field">
+        <span class="label">Додатково</span>
+        <!-- Галочки послуг створює JavaScript нижче -->
+        <div id="extras"></div>
+      </div>
+
+      <div class="summary">
+        <div class="row"><span>Тариф</span><span id="base">0 грн</span></div>
+        <div class="row"><span>Додатково</span><span id="extrasSum">0 грн</span></div>
+        <div class="row discount" id="discountRow" hidden>
+          <span id="discountLabel">Знижка</span><span id="discount">0 грн</span>
+        </div>
+        <div class="total"><span>Разом</span><strong id="total">0 грн</strong></div>
+      </div>
+
+      <p class="note">Ціни орієнтовні. Точну вартість уточнюй на рецепції.</p>
+    </div>
+  </div>
+
+  <!-- ===== JAVASCRIPT — логіка: що відбувається при кліках і як рахується сума ===== -->
+  <script>
+    // ---------- 1. ДАНІ: тарифи й ціни. Міняй цифри тут ----------
+    const TARIFFS = [
+      { id: "day",     name: "Гостьовий день",               price: 300,  unit: "day" },
+      { id: "flex",    name: "Нефіксоване місце (місяць)",   price: 4500, unit: "month" },
+      { id: "fixed",   name: "Фіксоване місце (місяць)",     price: 6000, unit: "month" },
+      { id: "meeting", name: "Переговорна кімната",          price: 400,  unit: "hour" },
+    ];
+
+    // Додаткові послуги: ціна за кожну одиницю часу (день / місяць / годину)
+    const EXTRAS = [
+      { id: "locker", name: "Особиста шафка",   price: { day: 50,  month: 500, hour: 0 } },
+      { id: "coffee", name: "Безлімітна кава",  price: { day: 80,  month: 900, hour: 40 } },
+    ];
+
+    // Знижки: якщо кількість ≥ min, то мінус percent відсотків від тарифу
+    const DISCOUNTS = {
+      day:   { min: 10, percent: 10 },   // від 10 днів — 10%
+      month: { min: 3,  percent: 15 },   // від 3 місяців — 15%
+      hour:  { min: 5,  percent: 10 },   // від 5 годин — 10%
+    };
+
+    // Як писати одиниці часу українською
+    const UNIT_WORDS = { day: "днів", month: "місяців", hour: "годин" };
+
+    // ---------- 2. СТАН: що зараз вибрав користувач ----------
+    let selectedTariff = TARIFFS[0];
+
+    // ---------- 3. Знаходимо елементи на сторінці ----------
+    const tariffsBox  = document.getElementById("tariffs");
+    const extrasBox   = document.getElementById("extras");
+    const amountInput = document.getElementById("amount");
+
+    // ---------- 4. Малюємо кнопки тарифів ----------
+    TARIFFS.forEach(function (tariff) {
+      const button = document.createElement("button");
+      button.type = "button";
+      button.className = "tariff";
+      button.innerHTML = tariff.name + " <small>" + formatMoney(tariff.price) + "</small>";
+
+      button.addEventListener("click", function () {
+        selectedTariff = tariff;
+        document.querySelectorAll(".tariff").forEach(function (b) { b.classList.remove("active"); });
+        button.classList.add("active");
+        calculate();
+      });
+
+      tariffsBox.appendChild(button);
+    });
+    tariffsBox.firstChild.classList.add("active");
+
+    // ---------- 5. Малюємо галочки додаткових послуг ----------
+    EXTRAS.forEach(function (extra) {
+      const label = document.createElement("label");
+      label.className = "extra";
+      label.innerHTML =
+        '<input type="checkbox" data-id="' + extra.id + '">' +
+        "<span>" + extra.name + "</span>" +
+        '<span class="extra-price"></span>';
+      label.querySelector("input").addEventListener("change", calculate);
+      extrasBox.appendChild(label);
+    });
+
+    // ---------- 6. Кнопки − і + та ручне введення ----------
+    document.getElementById("minus").addEventListener("click", function () {
+      amountInput.value = Math.max(1, getAmount() - 1);
+      calculate();
+    });
+    document.getElementById("plus").addEventListener("click", function () {
+      amountInput.value = getAmount() + 1;
+      calculate();
+    });
+    amountInput.addEventListener("input", calculate);
+
+    // ---------- 7. ГОЛОВНЕ: рахуємо суму ----------
+    function calculate() {
+      const amount = getAmount();
+      const unit = selectedTariff.unit;
+
+      // Ціна тарифу = ціна × кількість
+      const base = selectedTariff.price * amount;
+
+      // Додаткові послуги
+      let extrasSum = 0;
+      document.querySelectorAll("#extras input").forEach(function (checkbox, i) {
+        const extra = EXTRAS[i];
+        const pricePerUnit = extra.price[unit];
+        const priceLabel = checkbox.parentElement.querySelector(".extra-price");
+
+        if (pricePerUnit === 0) {
+          // Ця послуга недоступна для такого тарифу
+          checkbox.checked = false;
+          checkbox.disabled = true;
+          priceLabel.textContent = "—";
+          return;
+        }
+        checkbox.disabled = false;
+        priceLabel.textContent = "+" + formatMoney(pricePerUnit) + " / " + shortUnit(unit);
+
+        if (checkbox.checked) {
+          extrasSum += pricePerUnit * amount;
+        }
+      });
+
+      // Знижка (тільки на тариф, не на додаткові послуги)
+      const rule = DISCOUNTS[unit];
+      let discount = 0;
+      if (rule && amount >= rule.min) {
+        discount = Math.round(base * rule.percent / 100);
+      }
+
+      const total = base + extrasSum - discount;
+
+      // Показуємо результат на сторінці
+      document.getElementById("unit").textContent = UNIT_WORDS[unit];
+      document.getElementById("base").textContent = formatMoney(base);
+      document.getElementById("extrasSum").textContent = formatMoney(extrasSum);
+      document.getElementById("total").textContent = formatMoney(total);
+
+      const discountRow = document.getElementById("discountRow");
+      if (discount > 0) {
+        discountRow.hidden = false;
+        document.getElementById("discountLabel").textContent = "Знижка " + rule.percent + "%";
+        document.getElementById("discount").textContent = "−" + formatMoney(discount);
+      } else {
+        discountRow.hidden = true;
+      }
+    }
+
+    // ---------- 8. Допоміжні функції ----------
+    function getAmount() {
+      const value = parseInt(amountInput.value, 10);
+      return value > 0 ? value : 1;
+    }
+
+    function formatMoney(number) {
+      return number.toLocaleString("uk-UA") + " грн";
+    }
+
+    function shortUnit(unit) {
+      return { day: "день", month: "міс", hour: "год" }[unit];
+    }
+
+    // Порахувати одразу при відкритті сторінки
+    calculate();
+  </script>
+</body>
+</html>
