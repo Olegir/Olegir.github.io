@@ -1,5 +1,6 @@
 <!DOCTYPE html>
 <html lang="uk">
+
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -10,14 +11,21 @@
   <style>
     /* Кольори сайту. Зміни тут — і вони зміняться всюди */
     :root {
-      --bg: #1e2a48;        /* фон сторінки */
-      --card: #26355a;      /* фон карток */
-      --text: #f5f5f5;      /* основний текст */
-      --muted: #a9b4cc;     /* сірий текст */
-      --accent: #060606;    /* акцентний колір (кнопки, посилання) */
+      --bg: #1e2a48;
+      /* фон сторінки */
+      --card: #26355a;
+      /* фон карток */
+      --text: #f5f5f5;
+      /* основний текст */
+      --muted: #a9b4cc;
+      /* сірий текст */
+      --accent: #060606;
+      /* акцентний колір (кнопки, посилання) */
     }
 
-    * { box-sizing: border-box; }
+    * {
+      box-sizing: border-box;
+    }
 
     body {
       margin: 0;
@@ -27,7 +35,9 @@
       line-height: 1.6;
     }
 
-    a { color: var(--accent); }
+    a {
+      color: var(--accent);
+    }
 
     .container {
       max-width: 960px;
@@ -43,24 +53,49 @@
       backdrop-filter: blur(8px);
       z-index: 10;
     }
+
     nav {
       display: flex;
       justify-content: space-between;
       align-items: center;
       height: 64px;
     }
-    .logo { font-weight: 700; font-size: 20px; text-decoration: none; color: var(--text); }
+
+    .logo {
+      font-weight: 700;
+      font-size: 20px;
+      text-decoration: none;
+      color: var(--text);
+    }
+
     .menu a {
       margin-left: 20px;
       text-decoration: none;
       color: var(--muted);
     }
-    .menu a:hover { color: var(--text); }
+
+    .menu a:hover {
+      color: var(--text);
+    }
 
     /* --- Перший екран --- */
-    .hero { padding: 96px 0 72px; }
-    .hero h1 { font-size: 52px; line-height: 1.1; margin: 0 0 16px; }
-    .hero p { font-size: 20px; color: var(--muted); max-width: 600px; margin: 0 0 32px; }
+    .hero {
+      padding: 96px 0 72px;
+    }
+
+    .hero h1 {
+      font-size: 52px;
+      line-height: 1.1;
+      margin: 0 0 16px;
+    }
+
+    .hero p {
+      font-size: 20px;
+      color: var(--muted);
+      max-width: 600px;
+      margin: 0 0 32px;
+    }
+
     .button {
       display: inline-block;
       background: var(--accent);
@@ -72,8 +107,14 @@
     }
 
     /* --- Секції --- */
-    section { padding: 56px 0; }
-    h2 { font-size: 32px; margin: 0 0 24px; }
+    section {
+      padding: 56px 0;
+    }
+
+    h2 {
+      font-size: 32px;
+      margin: 0 0 24px;
+    }
 
     /* --- Картки проєктів --- */
     .projects {
@@ -81,14 +122,27 @@
       grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
       gap: 20px;
     }
+
     .project {
       background: var(--card);
       border-radius: 16px;
       padding: 24px;
     }
-    .project .emoji { font-size: 36px; }
-    .project h3 { margin: 12px 0 8px; font-size: 20px; }
-    .project p { margin: 0 0 16px; color: var(--muted); }
+
+    .project .emoji {
+      font-size: 36px;
+    }
+
+    .project h3 {
+      margin: 12px 0 8px;
+      font-size: 20px;
+    }
+
+    .project p {
+      margin: 0 0 16px;
+      color: var(--muted);
+    }
+
     .tag {
       display: inline-block;
       font-size: 13px;
@@ -114,10 +168,21 @@
 
     /* --- Телефон: менші шрифти, ховаємо меню --- */
     @media (max-width: 600px) {
-      .hero { padding: 56px 0 40px; }
-      .hero h1 { font-size: 36px; }
-      .hero p { font-size: 18px; }
-      .menu { display: none; }
+      .hero {
+        padding: 56px 0 40px;
+      }
+
+      .hero h1 {
+        font-size: 36px;
+      }
+
+      .hero p {
+        font-size: 18px;
+      }
+
+      .menu {
+        display: none;
+      }
     }
   </style>
 </head>
@@ -150,7 +215,9 @@
     <section id="about">
       <h2>Про мене</h2>
       <p>
-        Вирішив спробувати і це для мене наразі просто хоббі, хочу навчитися створювати вебпроєкти разом з AI. Маю досвід роботи в коворкінгу, тому створюю проєкти, які можуть бути корисними для коворкінгів та їхніх відвідувачів.
+        Вирішив спробувати і це для мене наразі просто хоббі, хочу навчитися створювати вебпроєкти разом з AI. Маю
+        досвід роботи в коворкінгу, тому створюю проєкти, які можуть бути корисними для коворкінгів та їхніх
+        відвідувачів.
       </p>
     </section>
 
@@ -159,13 +226,13 @@
       <h2>Проєкти</h2>
       <div class="projects">
 
-          
-          <a class="project" href="calculator/" style="text-decoration: none; color: inherit;">
-  <div class="emoji">🧮</div>
-  <h3>Калькулятор для коворкінгу</h3>
-  <p>Рахує вартість місця в Креативному Кварталі за тарифом, терміном і додатковими послугами.</p>
-  <span class="tag">Готово ✓</span>
-</a>
+
+        <a class="project" href="calculator/" style="text-decoration: none; color: inherit;">
+          <div class="emoji">🧮</div>
+          <h3>Калькулятор для коворкінгу</h3>
+          <p>Рахує вартість місця в Креативному Кварталі за тарифом, терміном і додатковими послугами.</p>
+          <span class="tag">Готово ✓</span>
+        </a>
 
         <div class="project">
           <div class="emoji">💰</div>
@@ -207,4 +274,5 @@
     Зроблено з ❤️ і Claude · 2026
   </footer>
 </body>
+
 </html>
