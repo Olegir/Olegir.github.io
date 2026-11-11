@@ -1,5 +1,6 @@
 'use strict';
-const defaults={salary:0,rate:41,debt:0,payment:0,rent:0,utilities:0,, fixedOther: 0, transactions: [], theme: 'dark' };
+const KEY = 'money-tracker-v1';
+const defaults = { salary: 0, rate: 41, debt: 0, payment: 0, rent: 0, utilities: 0, fixedOther: 0, transactions: [], theme: 'dark' };, fixedOther: 0, transactions: [], theme: 'dark' };
 function load() { try { const d = JSON.parse(localStorage.getItem(KEY)); return d && typeof d === 'object' ? { ...defaults, ...d, transactions: Array.isArray(d.transactions) ? d.transactions : [] } : structuredClone(defaults) } catch { return structuredClone(defaults) } }
 let state = load(); const $ = id => document.getElementById(id); const money = n => new Intl.NumberFormat('uk-UA', { style: 'currency', currency: 'UAH', maximumFractionDigits: 0 }).format(Number(n) || 0); const num = id => Math.max(0, Number($(id).value) || 0); const month = () => new Date().toLocaleDateString('sv-SE').slice(0, 7); const save = () => localStorage.setItem(KEY, JSON.stringify(state));
 const fields = ['salary', 'rate', 'debt', 'payment', 'rent', 'utilities', 'fixedOther']; for (const id of fields) { $(id).value = state[id]; $(id).addEventListener('input', () => { state[id] = num(id); save(); render() }) }
