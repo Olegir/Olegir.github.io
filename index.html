@@ -4,26 +4,207 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Олег — портфоліо</title>
+  <meta name="description" content="Портфоліо Олега: проєкти, зроблені з вайбкодингом.">
+
+  <!-- ===== СТИЛІ (CSS) — як сайт виглядає ===== -->
   <style>
+    /* Кольори сайту. Зміни тут — і вони зміняться всюди */
+    :root {
+      --bg: #1e2a48;        /* фон сторінки */
+      --card: #26355a;      /* фон карток */
+      --text: #f5f5f5;      /* основний текст */
+      --muted: #a9b4cc;     /* сірий текст */
+      --accent: #ffcc4d;    /* акцентний колір (кнопки, посилання) */
+    }
+
+    * { box-sizing: border-box; }
+
     body {
       margin: 0;
-      min-height: 100vh;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      line-height: 1.6;
+    }
+
+    a { color: var(--accent); }
+
+    .container {
+      max-width: 960px;
+      margin: 0 auto;
+      padding: 0 24px;
+    }
+
+    /* --- Верхнє меню --- */
+    header {
+      position: sticky;
+      top: 0;
+      background: rgba(30, 42, 72, 0.9);
+      backdrop-filter: blur(8px);
+      z-index: 10;
+    }
+    nav {
       display: flex;
+      justify-content: space-between;
       align-items: center;
-      justify-content: center;
-      font-family: -apple-system, sans-serif;
-      background: #1a2a4a;
-      color: #f5f5f5;
+      height: 64px;
+    }
+    .logo { font-weight: 700; font-size: 20px; text-decoration: none; color: var(--text); }
+    .menu a {
+      margin-left: 20px;
+      text-decoration: none;
+      color: var(--muted);
+    }
+    .menu a:hover { color: var(--text); }
+
+    /* --- Перший екран --- */
+    .hero { padding: 96px 0 72px; }
+    .hero h1 { font-size: 52px; line-height: 1.1; margin: 0 0 16px; }
+    .hero p { font-size: 20px; color: var(--muted); max-width: 600px; margin: 0 0 32px; }
+    .button {
+      display: inline-block;
+      background: var(--accent);
+      color: #1e2a48;
+      padding: 14px 28px;
+      border-radius: 12px;
+      font-weight: 600;
+      text-decoration: none;
+    }
+
+    /* --- Секції --- */
+    section { padding: 56px 0; }
+    h2 { font-size: 32px; margin: 0 0 24px; }
+
+    /* --- Картки проєктів --- */
+    .projects {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+      gap: 20px;
+    }
+    .project {
+      background: var(--card);
+      border-radius: 16px;
+      padding: 24px;
+    }
+    .project .emoji { font-size: 36px; }
+    .project h3 { margin: 12px 0 8px; font-size: 20px; }
+    .project p { margin: 0 0 16px; color: var(--muted); }
+    .tag {
+      display: inline-block;
+      font-size: 13px;
+      padding: 4px 10px;
+      border-radius: 999px;
+      background: rgba(255, 255, 255, 0.08);
+      color: var(--muted);
+    }
+
+    /* --- Контакти --- */
+    .contacts a {
+      display: inline-block;
+      margin: 0 16px 12px 0;
+      font-size: 18px;
+    }
+
+    footer {
+      padding: 32px 0;
+      color: var(--muted);
+      font-size: 14px;
       text-align: center;
     }
-    h1 { font-size: 48px; margin: 0 0 12px; }
-    p  { font-size: 20px; color: #aaa; }
+
+    /* --- Телефон: менші шрифти, ховаємо меню --- */
+    @media (max-width: 600px) {
+      .hero { padding: 56px 0 40px; }
+      .hero h1 { font-size: 36px; }
+      .hero p { font-size: 18px; }
+      .menu { display: none; }
+    }
   </style>
 </head>
+
 <body>
-  <div>
-    <h1>Привіт, я Олег 👋</h1>
-    <p>Наразі стараюсь розвивати нове хоббі.</p>
-  </div>
+  <!-- ===== HTML — що є на сторінці ===== -->
+
+  <!-- Верхнє меню -->
+  <header>
+    <nav class="container">
+      <a href="#" class="logo">Олег</a>
+      <div class="menu">
+        <a href="#about">Про мене</a>
+        <a href="#projects">Проєкти</a>
+        <a href="#contacts">Контакти</a>
+      </div>
+    </nav>
+  </header>
+
+  <main class="container">
+
+    <!-- Перший екран -->
+    <div class="hero">
+      <h1>Привіт, я Олег 👋</h1>
+      <p>Працюю в коворкінгу Креативний Квартал у Києві. Вчуся вайбкодингу: створюю вебпроєкти разом з AI.</p>
+      <a href="#projects" class="button">Дивитися проєкти</a>
+    </div>
+
+    <!-- Про мене -->
+    <section id="about">
+      <h2>Про мене</h2>
+      <p>
+        Тут напиши кілька речень про себе: чим займаєшся, що тобі цікаво,
+        чому вирішив вчитися створювати сайти й застосунки.
+      </p>
+    </section>
+
+    <!-- Проєкти -->
+    <section id="projects">
+      <h2>Проєкти</h2>
+      <div class="projects">
+
+        <div class="project">
+          <div class="emoji">🧮</div>
+          <h3>Калькулятор для коворкінгу</h3>
+          <p>Рахує вартість місця за тарифом і кількістю днів.</p>
+          <span class="tag">Скоро</span>
+        </div>
+
+        <div class="project">
+          <div class="emoji">💰</div>
+          <h3>Мані трекер</h3>
+          <p>Облік витрат, який встановлюється на Mac як застосунок.</p>
+          <span class="tag">В роботі</span>
+        </div>
+
+        <div class="project">
+          <div class="emoji">🏠</div>
+          <h3>3D тур квартири</h3>
+          <p>Прогулянка квартирою прямо в браузері.</p>
+          <span class="tag">В роботі</span>
+        </div>
+
+        <div class="project">
+          <div class="emoji">🌤️</div>
+          <h3>Київ сьогодні</h3>
+          <p>Курс валют і погода на одному екрані.</p>
+          <span class="tag">Скоро</span>
+        </div>
+
+      </div>
+    </section>
+
+    <!-- Контакти -->
+    <section id="contacts" class="contacts">
+      <h2>Контакти</h2>
+      <a href="https://github.com/Olegir" target="_blank">GitHub</a>
+      <!-- Заміни "your-telegram" на свій нік у Telegram -->
+      <a href="https://t.me/your-telegram" target="_blank">Telegram</a>
+      <!-- Заміни на свій email -->
+      <a href="mailto:you@example.com">Email</a>
+    </section>
+
+  </main>
+
+  <footer>
+    Зроблено з ❤️ і Claude · 2026
+  </footer>
 </body>
 </html>
