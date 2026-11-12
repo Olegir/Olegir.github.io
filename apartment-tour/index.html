@@ -1,0 +1,398 @@
+<!DOCTYPE html>
+<html lang="uk">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>3D тур квартири — Олег</title>
+  <style>
+    * { box-sizing: border-box; }
+    html, body { margin: 0; height: 100%; overflow: hidden; background: #1e2a48; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; color: #f5f5f5; }
+    #scene { position: fixed; inset: 0; }
+
+    /* Панель керування поверх 3D-сцени */
+    .ui {
+      position: fixed; left: 16px; top: 16px; right: 16px;
+      display: flex; flex-wrap: wrap; gap: 8px; align-items: center;
+      pointer-events: none;
+    }
+    .ui > * { pointer-events: auto; }
+    .back { color: #a9b4cc; text-decoration: none; margin-right: 8px; font-size: 15px; }
+    .ui button {
+      border: 0; border-radius: 999px; padding: 9px 14px;
+      background: rgba(38, 53, 90, 0.85); color: #f5f5f5; font: inherit; font-size: 14px;
+      cursor: pointer; backdrop-filter: blur(6px);
+    }
+    .ui button.active { background: #ef8061; color: #1e2a48; font-weight: 600; }
+    .hint {
+      position: fixed; left: 50%; bottom: 16px; transform: translateX(-50%);
+      background: rgba(30, 42, 72, 0.85); padding: 8px 14px; border-radius: 999px;
+      font-size: 13px; color: #a9b4cc; white-space: nowrap;
+    }
+    /* Підписи кімнат у 3D */
+    .label {
+      background: rgba(30, 42, 72, 0.8); color: #fff; padding: 3px 9px;
+      border-radius: 999px; font-size: 12px; white-space: nowrap;
+    }
+  </style>
+
+  <!-- Підключаємо бібліотеку Three.js з інтернету -->
+  <script type="importmap">
+    {
+      "imports": {
+        "three": "https://cdn.jsdelivr.net/npm/three@0.170.0/build/three.module.js",
+        "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/"
+      }
+    }
+  </script>
+</head>
+<body>
+  <div id="scene"></div>
+
+  <div class="ui">
+    <a href="../" class="back">← Портфоліо</a>
+    <button data-view="all" class="active">Вся квартира</button>
+    <button data-view="hall">Коридор</button>
+    <button data-view="bath">Санвузол</button>
+    <button data-view="room">Кімната</button>
+    <button data-view="kitchen">Кухня</button>
+    <button id="wallsBtn">Зрізати стіни</button>
+  </div>
+  <div class="hint">Тягни — обертати · коліщатко / два пальці — наблизити</div>
+
+  <script type="module">
+    import * as THREE from 'three';
+    import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+    import { CSS2DRenderer, CSS2DObject } from 'three/addons/renderers/CSS2DRenderer.js';
+
+    // =====================================================================
+    // 1. ПЛАН КВАРТИРИ (у метрах). Міняй цифри тут, щоб підігнати розміри.
+    //    x — зліва направо, z — від вхідних дверей углиб квартири.
+    //    Вхідні двері стоять на лінії z = 0.
+    // =====================================================================
+    const WALL_HEIGHT = 2.7;
+
+    const ROOMS = {
+      hall:    { name: 'Коридор',  x1: 0,    x2: 1.5, z1: 0,   z2: 3,   floor: 'wood' },
+      bath:    { name: 'Санвузол', x1: -2,   x2: 0,   z1: 0,   z2: 3,   floor: 'tile' },
+      room:    { name: 'Кімната',  x1: -2,   x2: 1.5, z1: 3,   z2: 7.5, floor: 'wood' },
+      kitchen: { name: 'Кухня',    x1: 1.5,  x2: 4.1, z1: 2,   z2: 7.5, floor: 'wood' },
+    };
+
+    // Стіни: від точки (x1,z1) до (x2,z2). holes — прорізи: from/to (уздовж стіни),
+    // bottom/top (висота). Двері: bottom 0. Вікна: bottom ~0.9.
+    const WALLS = [
+      // --- Зовнішні стіни ---
+      { x1: -2,  z1: 0,   x2: 1.5, z2: 0,   holes: [{ from: 2.35, to: 3.25, bottom: 0, top: 2.1 }] }, // вхідні двері
+      { x1: 1.5, z1: 0,   x2: 1.5, z2: 2 },
+      { x1: 1.5, z1: 2,   x2: 4.1, z2: 2 },
+      { x1: 4.1, z1: 2,   x2: 4.1, z2: 7.5 },
+      { x1: -2,  z1: 7.5, x2: 4.1, z2: 7.5, holes: [
+          { from: 0.3, to: 3.2, bottom: 0.85, top: 2.45 },   // вікна кімнати
+          { from: 3.9, to: 5.8, bottom: 1.0,  top: 2.45 },   // вікно кухні
+      ] },
+      { x1: -2,  z1: 0,   x2: -2,  z2: 7.5 },
+      // --- Внутрішні стіни ---
+      { x1: 0,   z1: 0,   x2: 0,   z2: 3,   holes: [{ from: 1.3, to: 2.1, bottom: 0, top: 2.1 }] },   // двері в санвузол
+      { x1: -2,  z1: 3,   x2: 1.5, z2: 3,   holes: [{ from: 2.2, to: 3.3, bottom: 0, top: 2.1 }] },   // прохід у кімнату
+      { x1: 1.5, z1: 2,   x2: 1.5, z2: 7.5, holes: [{ from: 0.1, to: 0.9, bottom: 0, top: 2.1 }] },   // двері на кухню
+    ];
+
+    // =====================================================================
+    // 2. СЦЕНА, КАМЕРА, СВІТЛО
+    // =====================================================================
+    const container = document.getElementById('scene');
+    const scene = new THREE.Scene();
+    scene.background = new THREE.Color('#1e2a48');
+
+    const camera = new THREE.PerspectiveCamera(45, innerWidth / innerHeight, 0.1, 100);
+
+    const renderer = new THREE.WebGLRenderer({ antialias: true });
+    renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
+    renderer.setSize(innerWidth, innerHeight);
+    renderer.shadowMap.enabled = true;
+    renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+    container.appendChild(renderer.domElement);
+
+    // Окремий «рендерер» для HTML-підписів кімнат
+    const labelRenderer = new CSS2DRenderer();
+    labelRenderer.setSize(innerWidth, innerHeight);
+    labelRenderer.domElement.style.position = 'fixed';
+    labelRenderer.domElement.style.inset = '0';
+    labelRenderer.domElement.style.pointerEvents = 'none';
+    document.body.appendChild(labelRenderer.domElement);
+
+    scene.add(new THREE.HemisphereLight('#ffffff', '#8a7a66', 1.6));
+    const sun = new THREE.DirectionalLight('#fff4e0', 2.2);
+    sun.position.set(6, 12, 14);   // світло падає з боку вікон
+    sun.castShadow = true;
+    sun.shadow.mapSize.set(2048, 2048);
+    Object.assign(sun.shadow.camera, { left: -8, right: 8, top: 8, bottom: -8 });
+    scene.add(sun);
+
+    const controls = new OrbitControls(camera, renderer.domElement);
+    controls.enableDamping = true;
+    controls.maxPolarAngle = Math.PI / 2.1;   // не даємо камері пірнати під підлогу
+    controls.minDistance = 2;
+    controls.maxDistance = 25;
+
+    // =====================================================================
+    // 3. МАТЕРІАЛИ ТА ТЕКСТУРИ (малюємо прямо в коді, без картинок)
+    // =====================================================================
+    function canvasTexture(size, draw, repeat = 1) {
+      const c = document.createElement('canvas');
+      c.width = c.height = size;
+      draw(c.getContext('2d'), size);
+      const t = new THREE.CanvasTexture(c);
+      t.wrapS = t.wrapT = THREE.RepeatWrapping;
+      t.repeat.set(repeat, repeat);
+      t.colorSpace = THREE.SRGBColorSpace;
+      return t;
+    }
+
+    // Ламінат «під дерево»: дошки з легкою різницею у кольорі
+    const woodTex = canvasTexture(512, (g, s) => {
+      const plank = s / 4;
+      for (let i = 0; i < 4; i++) {
+        for (let j = 0; j < 2; j++) {
+          const l = 52 + Math.random() * 8;
+          g.fillStyle = `hsl(30, 40%, ${l}%)`;
+          const offset = (i % 2) * s / 4;
+          g.fillRect(i * plank, j * s / 2 + offset - s / 2, plank, s / 2);
+          g.fillRect(i * plank, j * s / 2 + offset, plank, s / 2);
+        }
+        g.fillStyle = 'rgba(0,0,0,0.15)';
+        g.fillRect(i * plank, 0, 2, s);
+      }
+      g.globalAlpha = 0.08;
+      for (let k = 0; k < 300; k++) {
+        g.fillStyle = Math.random() > 0.5 ? '#000' : '#fff';
+        g.fillRect(Math.random() * s, Math.random() * s, 1, 20 + Math.random() * 40);
+      }
+    }, 0.6);
+
+    // Плитка під сірий мармур
+    const tileTex = canvasTexture(256, (g, s) => {
+      g.fillStyle = '#c4c5c8'; g.fillRect(0, 0, s, s);
+      g.strokeStyle = 'rgba(255,255,255,0.35)'; g.lineWidth = 2;
+      for (let k = 0; k < 6; k++) {
+        g.beginPath(); g.moveTo(Math.random() * s, 0);
+        g.bezierCurveTo(Math.random() * s, s / 3, Math.random() * s, s / 1.5, Math.random() * s, s);
+        g.stroke();
+      }
+      g.strokeStyle = 'rgba(0,0,0,0.15)'; g.lineWidth = 2; g.strokeRect(0, 0, s, s);
+    }, 1.5);
+
+    // Фартух «тераццо»: білий з кольоровими крапками
+    const terrazzoTex = canvasTexture(256, (g, s) => {
+      g.fillStyle = '#f1efea'; g.fillRect(0, 0, s, s);
+      const colors = ['#c9774f', '#6d6d6d', '#2f2f2f', '#d9b48f', '#9aa3a8'];
+      for (let k = 0; k < 220; k++) {
+        g.fillStyle = colors[k % colors.length];
+        g.beginPath();
+        g.ellipse(Math.random() * s, Math.random() * s, 1 + Math.random() * 4, 1 + Math.random() * 3, Math.random() * 3, 0, Math.PI * 2);
+        g.fill();
+      }
+    }, 2);
+
+    const M = {
+      wall:     new THREE.MeshStandardMaterial({ color: '#efeeea', roughness: 0.9 }),
+      white:    new THREE.MeshStandardMaterial({ color: '#f7f7f5', roughness: 0.5 }),
+      grayFurn: new THREE.MeshStandardMaterial({ color: '#5b5e63', roughness: 0.9 }),
+      beige:    new THREE.MeshStandardMaterial({ color: '#ddd6ca', roughness: 0.95 }),
+      darkGray: new THREE.MeshStandardMaterial({ color: '#3a3c40', roughness: 0.6 }),
+      kitchen:  new THREE.MeshStandardMaterial({ color: '#b9bcc0', roughness: 0.6 }),
+      woodTop:  new THREE.MeshStandardMaterial({ color: '#c99a63', roughness: 0.7 }),
+      black:    new THREE.MeshStandardMaterial({ color: '#151515', roughness: 0.3 }),
+      glass:    new THREE.MeshStandardMaterial({ color: '#cfe6ff', transparent: true, opacity: 0.25, roughness: 0.1 }),
+      wood:     new THREE.MeshStandardMaterial({ map: woodTex, roughness: 0.8 }),
+      tile:     new THREE.MeshStandardMaterial({ map: tileTex, roughness: 0.4 }),
+      terrazzo: new THREE.MeshStandardMaterial({ map: terrazzoTex, roughness: 0.5 }),
+      led:      new THREE.MeshBasicMaterial({ color: '#fff6c8' }),
+      niche:    new THREE.MeshBasicMaterial({ color: '#f0a35e' }),
+    };
+
+    // =====================================================================
+    // 4. ДОПОМІЖНІ ФУНКЦІЇ ДЛЯ ПОБУДОВИ
+    // =====================================================================
+    // Коробка за координатами плану: x1..x2, z1..z2, від висоти y1 до y2
+    function box(x1, x2, z1, z2, y1, y2, mat, parent = scene) {
+      const w = Math.abs(x2 - x1), d = Math.abs(z2 - z1), h = y2 - y1;
+      const mesh = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), mat);
+      mesh.position.set((x1 + x2) / 2, y1 + h / 2, (z1 + z2) / 2);
+      mesh.castShadow = mesh.receiveShadow = true;
+      parent.add(mesh);
+      return mesh;
+    }
+
+    function cylinder(x, z, r, y1, y2, mat) {
+      const mesh = new THREE.Mesh(new THREE.CylinderGeometry(r, r, y2 - y1, 24), mat);
+      mesh.position.set(x, (y1 + y2) / 2, z);
+      mesh.castShadow = true;
+      scene.add(mesh);
+      return mesh;
+    }
+
+    // Стіна з прорізами (двері, вікна): ділимо її на шматки
+    const wallsGroup = new THREE.Group();
+    scene.add(wallsGroup);
+    const T = 0.1; // товщина стіни
+
+    function buildWall({ x1, z1, x2, z2, holes = [] }) {
+      const len = Math.hypot(x2 - x1, z2 - z1);
+      const angle = Math.atan2(z2 - z1, x2 - x1);
+      const piece = (from, to, bottom, top) => {
+        if (to - from < 0.01 || top - bottom < 0.01) return;
+        const mesh = new THREE.Mesh(new THREE.BoxGeometry(to - from, top - bottom, T), M.wall);
+        const mid = (from + to) / 2;
+        mesh.position.set(x1 + Math.cos(angle) * mid, (bottom + top) / 2, z1 + Math.sin(angle) * mid);
+        mesh.rotation.y = -angle;
+        mesh.castShadow = mesh.receiveShadow = true;
+        wallsGroup.add(mesh);
+      };
+      const sorted = [...holes].sort((a, b) => a.from - b.from);
+      let cursor = 0;
+      for (const h of sorted) {
+        piece(cursor, h.from, 0, WALL_HEIGHT);           // суцільний шматок до прорізу
+        piece(h.from, h.to, 0, h.bottom);                // під прорізом (підвіконня)
+        piece(h.from, h.to, h.top, WALL_HEIGHT);         // над прорізом
+        if (h.bottom > 0) {                              // скло у вікні
+          const glass = new THREE.Mesh(new THREE.PlaneGeometry(h.to - h.from, h.top - h.bottom), M.glass);
+          const mid = (h.from + h.to) / 2;
+          glass.position.set(x1 + Math.cos(angle) * mid, (h.bottom + h.top) / 2, z1 + Math.sin(angle) * mid);
+          glass.rotation.y = -angle;
+          wallsGroup.add(glass);
+        }
+        cursor = h.to;
+      }
+      piece(cursor, len, 0, WALL_HEIGHT);
+    }
+
+    // =====================================================================
+    // 5. БУДУЄМО КВАРТИРУ
+    // =====================================================================
+    // Підлога і підписи кожної кімнати
+    for (const r of Object.values(ROOMS)) {
+      const floor = new THREE.Mesh(new THREE.PlaneGeometry(r.x2 - r.x1, r.z2 - r.z1), M[r.floor]);
+      floor.rotation.x = -Math.PI / 2;
+      floor.position.set((r.x1 + r.x2) / 2, 0.001, (r.z1 + r.z2) / 2);
+      floor.receiveShadow = true;
+      scene.add(floor);
+
+      const div = document.createElement('div');
+      div.className = 'label';
+      div.textContent = r.name;
+      const label = new CSS2DObject(div);
+      label.position.set((r.x1 + r.x2) / 2, 0.05, (r.z1 + r.z2) / 2);
+      scene.add(label);
+    }
+
+    WALLS.forEach(buildWall);
+
+    // --- Коридор: вхідні двері та шафи-купе ---
+    box(0.35, 1.25, -0.02, 0.03, 0, 2.1, M.white);                       // вхідні двері
+    box(0.9, 1.45, 0.15, 1.95, 0, 2.6, M.white);                         // шафа
+    box(0.89, 0.9, 0.2, 1.9, 1.0, 1.4, M.darkGray);                      // ручка-щілина
+
+    // --- Санвузол ---
+    box(-1.9, -1.3, 0.1, 0.65, 0, 0.85, M.white);                        // пральна машина
+    cylinder(-1.6, 0.66, 0.2, 0.44, 0.46, M.darkGray).rotation.x = Math.PI / 2; // люк
+    box(-1.2, -0.45, 0.05, 0.55, 0, 0.82, M.white);                      // тумба
+    box(-1.05, -0.6, 0.12, 0.48, 0.82, 0.95, M.white);                   // раковина
+    box(-1.9, -1.4, 0.05, 0.4, 1.7, 2.4, M.white);                       // бойлер
+    box(-1.98, -1.55, 1.0, 1.4, 0.3, 0.7, M.white);                      // унітаз
+    box(-1.99, -1.95, 0.95, 1.45, 1.1, 1.3, M.niche);                    // ніша з підсвіткою
+    box(-2, -1.0, 2.05, 2.95, 0, 0.03, M.tile);                          // піддон душу
+    box(-1.0, -0.98, 2.05, 2.95, 0, 2.0, M.glass);                       // шторка
+    cylinder(-1.9, 2.9, 0.02, 0, 2.0, M.black);                          // стійка душу
+
+    // --- Кімната ---
+    box(-2, 0.0, 4.6, 6.2, 0, 0.45, M.grayFurn);                         // ліжко
+    box(-1.95, -0.05, 4.65, 6.15, 0.45, 0.55, M.darkGray);               // матрац/покривало
+    box(-2, -1.9, 4.55, 6.25, 0, 1.05, M.grayFurn);                      // узголів'я
+    box(0.65, 1.45, 4.8, 6.6, 0, 0.42, M.beige);                         // диван: сидіння
+    box(1.25, 1.45, 4.8, 6.6, 0.42, 0.85, M.beige);                      // диван: спинка
+    box(-1.6, -0.4, 3.05, 3.5, 0, 0.8, M.white);                         // комод
+    box(-1.45, -0.55, 3.05, 3.09, 1.3, 1.82, M.black);                   // телевізор
+    box(-1.7, 1.2, 7.3, 7.4, 0.15, 0.7, M.white);                        // радіатор
+    box(-1.75, 1.25, 7.15, 7.45, 0.82, 0.87, M.white);                   // підвіконня
+    box(-1.0, 0.0, 7.2, 7.44, 2.25, 2.5, M.white);                       // кондиціонер
+    box(-1.95, 1.45, 3.08, 3.12, 2.62, 2.66, M.led);                     // LED-підсвітка
+
+    // --- Кухня ---
+    box(3.45, 4.05, 2.05, 2.7, 0, 2.0, M.white);                         // холодильник
+    box(3.5, 4.05, 2.75, 6.2, 0, 0.86, M.kitchen);                       // нижні шафи
+    box(3.45, 4.05, 2.75, 6.2, 0.86, 0.9, M.woodTop);                    // стільниця
+    box(4.03, 4.05, 2.75, 6.2, 0.9, 1.5, M.terrazzo);                    // фартух
+    box(3.75, 4.05, 2.75, 6.2, 1.5, 2.3, M.white);                       // верхні шафи
+    box(3.6, 3.95, 3.6, 4.2, 0.86, 0.91, M.beige);                       // мийка
+    box(3.6, 3.95, 4.8, 5.4, 0.9, 0.905, M.black);                       // варильна поверхня
+    box(3.49, 3.5, 4.8, 5.4, 0.1, 0.7, M.black);                         // духовка
+    box(1.55, 2.1, 3.2, 5.0, 0, 2.5, M.white);                           // високі шафи
+    box(1.6, 4.0, 7.05, 7.45, 1.02, 1.07, M.woodTop);                    // барна стійка
+    box(1.6, 4.0, 7.3, 7.45, 0, 1.02, M.terrazzo);
+    for (const x of [2.3, 3.2]) {                                        // барні стільці
+      cylinder(x, 6.75, 0.2, 0.62, 0.68, M.grayFurn);
+      cylinder(x, 6.75, 0.025, 0, 0.62, M.black);
+    }
+
+    // =====================================================================
+    // 6. КНОПКИ: перехід до кімнат і «зрізати стіни»
+    // =====================================================================
+    const VIEWS = {
+      all: { target: [1, 0, 3.75], camera: [1, 13, -5] },
+    };
+    for (const [id, r] of Object.entries(ROOMS)) {
+      const cx = (r.x1 + r.x2) / 2, cz = (r.z1 + r.z2) / 2;
+      VIEWS[id] = { target: [cx, 0.8, cz], camera: [cx + 0.5, 5.5, cz - 4] };
+    }
+
+    let flight = null;
+    function flyTo(id) {
+      const v = VIEWS[id];
+      flight = {
+        fromCam: camera.position.clone(), toCam: new THREE.Vector3(...v.camera),
+        fromTarget: controls.target.clone(), toTarget: new THREE.Vector3(...v.target),
+        t: 0,
+      };
+      document.querySelectorAll('[data-view]').forEach(b => b.classList.toggle('active', b.dataset.view === id));
+    }
+    document.querySelectorAll('[data-view]').forEach(b => b.addEventListener('click', () => flyTo(b.dataset.view)));
+
+    let lowWalls = false;
+    document.getElementById('wallsBtn').addEventListener('click', e => {
+      lowWalls = !lowWalls;
+      wallsGroup.scale.y = lowWalls ? 0.35 : 1;
+      e.target.classList.toggle('active', lowWalls);
+    });
+
+    // Стартова позиція камери
+    camera.position.set(...VIEWS.all.camera);
+    controls.target.set(...VIEWS.all.target);
+
+    // =====================================================================
+    // 7. АНІМАЦІЯ: малюємо сцену ~60 разів на секунду
+    // =====================================================================
+    function animate() {
+      requestAnimationFrame(animate);
+      if (flight) {
+        flight.t = Math.min(1, flight.t + 0.025);
+        const k = 1 - Math.pow(1 - flight.t, 3);   // плавне сповільнення
+        camera.position.lerpVectors(flight.fromCam, flight.toCam, k);
+        controls.target.lerpVectors(flight.fromTarget, flight.toTarget, k);
+        if (flight.t === 1) flight = null;
+      }
+      controls.update();
+      renderer.render(scene, camera);
+      labelRenderer.render(scene, camera);
+    }
+    animate();
+
+    addEventListener('resize', () => {
+      camera.aspect = innerWidth / innerHeight;
+      camera.updateProjectionMatrix();
+      renderer.setSize(innerWidth, innerHeight);
+      labelRenderer.setSize(innerWidth, innerHeight);
+    });
+  </script>
+</body>
+</html>
