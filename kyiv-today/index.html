@@ -1,0 +1,282 @@
+<!DOCTYPE html>
+<html lang="uk">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Київ сьогодні — курс і погода</title>
+
+  <!-- ===== СТИЛІ (CSS) ===== -->
+  <style>
+    :root {
+      --bg: #1e2a48;
+      --card: #26355a;
+      --text: #f5f5f5;
+      --muted: #a9b4cc;
+      --accent: #ef8061;
+      --line: rgba(255, 255, 255, 0.1);
+      --good: #7ee2a8;
+      --bad: #ff8a8a;
+    }
+    * { box-sizing: border-box; }
+    [hidden] { display: none !important; }
+    body {
+      margin: 0;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      line-height: 1.5;
+      padding: 32px 20px 64px;
+    }
+    .wrap { max-width: 900px; margin: 0 auto; }
+    .back { color: var(--muted); text-decoration: none; font-size: 15px; }
+    .back:hover { color: var(--text); }
+
+    header { display: flex; justify-content: space-between; align-items: flex-end; gap: 16px; flex-wrap: wrap; margin: 20px 0 24px; }
+    h1 { font-size: 36px; line-height: 1.1; margin: 0; }
+    .today { color: var(--muted); margin-top: 6px; }
+    .refresh {
+      border: 2px solid var(--line); background: transparent; color: var(--text);
+      border-radius: 12px; padding: 10px 16px; font: inherit; cursor: pointer;
+    }
+    .refresh:hover { border-color: var(--accent); }
+
+    .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+    .card { background: var(--card); border-radius: 20px; padding: 24px; }
+    .card h2 { font-size: 18px; margin: 0 0 16px; color: var(--muted); font-weight: 600; }
+
+    /* Погода */
+    .now { display: flex; align-items: center; gap: 16px; }
+    .now .icon { font-size: 64px; line-height: 1; }
+    .now .temp { font-size: 52px; font-weight: 700; line-height: 1; }
+    .now .desc { color: var(--muted); }
+    .days { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-top: 20px; }
+    .day { background: rgba(255,255,255,0.05); border-radius: 14px; padding: 12px; text-align: center; }
+    .day .name { color: var(--muted); font-size: 13px; }
+    .day .icon { font-size: 28px; }
+    .day .range { font-weight: 600; }
+
+    /* Курс валют */
+    .rate { display: flex; justify-content: space-between; align-items: center; padding: 12px 0; border-bottom: 1px solid var(--line); }
+    .rate:last-of-type { border-bottom: 0; }
+    .rate .cur { display: flex; align-items: center; gap: 10px; font-size: 18px; }
+    .rate .flag { font-size: 24px; }
+    .rate .value { font-size: 22px; font-weight: 700; }
+    .rate small { color: var(--muted); font-size: 13px; }
+
+    /* Конвертер */
+    .converter { margin-top: 16px; padding-top: 16px; border-top: 1px solid var(--line); display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+    .converter input, .converter select {
+      height: 44px; border-radius: 12px; border: 2px solid var(--line);
+      background: transparent; color: var(--text); font: inherit; padding: 0 12px;
+    }
+    .converter input { width: 120px; }
+    .converter select option { color: #000; }
+    .converter .result { font-size: 20px; font-weight: 700; color: var(--accent); }
+
+    .note { color: var(--muted); font-size: 13px; margin-top: 16px; }
+    .error { color: var(--bad); }
+    .loading { color: var(--muted); }
+
+    footer { color: var(--muted); font-size: 13px; text-align: center; margin-top: 28px; }
+    footer a { color: var(--muted); }
+
+    @media (max-width: 700px) {
+      .grid { grid-template-columns: 1fr; }
+      h1 { font-size: 28px; }
+    }
+  </style>
+</head>
+
+<body>
+  <!-- ===== HTML ===== -->
+  <div class="wrap">
+    <a href="../" class="back">← До портфоліо</a>
+
+    <header>
+      <div>
+        <h1>Київ сьогодні 🌤️</h1>
+        <div class="today" id="today"></div>
+      </div>
+      <button class="refresh" id="refreshBtn">↻ Оновити</button>
+    </header>
+
+    <div class="grid">
+      <!-- Погода -->
+      <section class="card">
+        <h2>Погода</h2>
+        <div id="weather"><p class="loading">Завантажую погоду…</p></div>
+      </section>
+
+      <!-- Курс валют -->
+      <section class="card">
+        <h2>Курс НБУ</h2>
+        <div id="rates"><p class="loading">Завантажую курс…</p></div>
+
+        <div class="converter" id="converter" hidden>
+          <input type="number" id="convAmount" value="100" min="0">
+          <select id="convCurrency"></select>
+          <span>=</span>
+          <span class="result" id="convResult">—</span>
+        </div>
+      </section>
+    </div>
+
+    <footer>
+      Дані: <a href="https://bank.gov.ua/ua/open-data/api-dev" target="_blank">Національний банк України</a> ·
+      <a href="https://open-meteo.com/" target="_blank">Open-Meteo</a> ·
+      <span id="updated"></span>
+    </footer>
+  </div>
+
+  <!-- ===== JAVASCRIPT ===== -->
+  <script>
+    // ---------- 1. НАЛАШТУВАННЯ ----------
+    // Координати Києва для погоди
+    const CITY = { name: 'Київ', lat: 50.45, lon: 30.52 };
+
+    // Які валюти показувати (коди як у НБУ) і їхні прапорці
+    const CURRENCIES = [
+      { code: 'GBP', flag: '🇬🇧', name: 'Фунт стерлінгів' },
+      { code: 'USD', flag: '🇺🇸', name: 'Долар США' },
+      { code: 'EUR', flag: '🇪🇺', name: 'Євро' },
+      { code: 'PLN', flag: '🇵🇱', name: 'Злотий' },
+    ];
+
+    // Адреси API: сюди сторінка «стукає» по дані
+    const RATES_URL = 'https://bank.gov.ua/NBUStatService/v1/statdirectory/exchange?json';
+    const WEATHER_URL =
+      'https://api.open-meteo.com/v1/forecast' +
+      '?latitude=' + CITY.lat + '&longitude=' + CITY.lon +
+      '&current=temperature_2m,apparent_temperature,weather_code,wind_speed_10m' +
+      '&daily=temperature_2m_max,temperature_2m_min,weather_code' +
+      '&timezone=Europe%2FKyiv&forecast_days=3';
+
+    // Оновлювати автоматично кожні 10 хвилин
+    const AUTO_REFRESH_MINUTES = 10;
+
+    // Коди погоди Open-Meteo → емодзі та опис
+    function weatherInfo(code) {
+      if (code === 0) return ['☀️', 'Ясно'];
+      if (code <= 2) return ['🌤️', 'Мінлива хмарність'];
+      if (code === 3) return ['☁️', 'Хмарно'];
+      if (code <= 48) return ['🌫️', 'Туман'];
+      if (code <= 57) return ['🌦️', 'Мряка'];
+      if (code <= 67) return ['🌧️', 'Дощ'];
+      if (code <= 77) return ['❄️', 'Сніг'];
+      if (code <= 82) return ['🌧️', 'Злива'];
+      if (code <= 86) return ['🌨️', 'Снігопад'];
+      return ['⛈️', 'Гроза'];
+    }
+
+    // ---------- 2. ДАНІ, ЯКІ МИ ОТРИМАЛИ ----------
+    let rates = {};   // наприклад { USD: 41.5, EUR: 44.9, PLN: 10.4 }
+
+    // ---------- 3. ПОГОДА ----------
+    async function loadWeather() {
+      const box = document.getElementById('weather');
+      try {
+        // fetch — «сходити» за даними на іншу адресу. await — дочекатися відповіді.
+        const response = await fetch(WEATHER_URL);
+        if (!response.ok) throw new Error('Сервер відповів кодом ' + response.status);
+        const data = await response.json();   // перетворюємо текст JSON на об'єкт
+
+        const [icon, desc] = weatherInfo(data.current.weather_code);
+        const days = data.daily.time.map((date, i) => {
+          const [dIcon] = weatherInfo(data.daily.weather_code[i]);
+          const name = i === 0 ? 'Сьогодні' : i === 1 ? 'Завтра'
+            : new Date(date).toLocaleDateString('uk-UA', { weekday: 'long' });
+          return `
+            <div class="day">
+              <div class="name">${name}</div>
+              <div class="icon">${dIcon}</div>
+              <div class="range">${Math.round(data.daily.temperature_2m_max[i])}° / ${Math.round(data.daily.temperature_2m_min[i])}°</div>
+            </div>`;
+        }).join('');
+
+        box.innerHTML = `
+          <div class="now">
+            <div class="icon">${icon}</div>
+            <div>
+              <div class="temp">${Math.round(data.current.temperature_2m)}°</div>
+              <div class="desc">${desc} · відчувається як ${Math.round(data.current.apparent_temperature)}° · вітер ${Math.round(data.current.wind_speed_10m)} км/год</div>
+            </div>
+          </div>
+          <div class="days">${days}</div>`;
+      } catch (error) {
+        // Якщо інтернету немає або сервіс не відповів — показуємо зрозуміле повідомлення
+        box.innerHTML = '<p class="error">Не вдалося завантажити погоду. Перевір інтернет і натисни «Оновити».</p>';
+        console.error('Погода:', error);
+      }
+    }
+
+    // ---------- 4. КУРС ВАЛЮТ ----------
+    async function loadRates() {
+      const box = document.getElementById('rates');
+      try {
+        const response = await fetch(RATES_URL);
+        if (!response.ok) throw new Error('Сервер відповів кодом ' + response.status);
+        const data = await response.json();   // масив: [{ cc: 'USD', rate: 41.5, exchangedate: '12.11.2026', ... }, ...]
+
+        let date = '';
+        const rows = CURRENCIES.map(c => {
+          const item = data.find(x => x.cc === c.code);
+          if (!item) return '';
+          rates[c.code] = item.rate;
+          date = item.exchangedate;
+          return `
+            <div class="rate">
+              <div class="cur"><span class="flag">${c.flag}</span><div>${c.code}<br><small>${c.name}</small></div></div>
+              <div class="value">${item.rate.toFixed(2)} ₴</div>
+            </div>`;
+        }).join('');
+
+        box.innerHTML = rows + `<p class="note">Офіційний курс на ${date}</p>`;
+        setupConverter();
+      } catch (error) {
+        box.innerHTML = '<p class="error">Не вдалося завантажити курс НБУ. Перевір інтернет і натисни «Оновити».</p>';
+        document.getElementById('converter').hidden = true;
+        console.error('Курс:', error);
+      }
+    }
+
+    // ---------- 5. КОНВЕРТЕР ----------
+    function setupConverter() {
+      const select = document.getElementById('convCurrency');
+      if (!select.options.length) {
+        CURRENCIES.forEach(c => select.add(new Option(c.code + ' → грн', c.code)));
+        select.addEventListener('change', convert);
+        document.getElementById('convAmount').addEventListener('input', convert);
+      }
+      document.getElementById('converter').hidden = false;
+      convert();
+    }
+
+    function convert() {
+      const amount = Number(document.getElementById('convAmount').value) || 0;
+      const code = document.getElementById('convCurrency').value;
+      const result = amount * (rates[code] || 0);
+      document.getElementById('convResult').textContent =
+        result.toLocaleString('uk-UA', { maximumFractionDigits: 2 }) + ' ₴';
+    }
+
+    // ---------- 6. ЗАПУСК ----------
+    function showToday() {
+      document.getElementById('today').textContent = new Date().toLocaleDateString('uk-UA', {
+        weekday: 'long', day: 'numeric', month: 'long',
+      });
+    }
+
+    async function loadAll() {
+      showToday();
+      // Обидва запити йдуть одночасно, а не по черзі
+      await Promise.all([loadWeather(), loadRates()]);
+      document.getElementById('updated').textContent =
+        'оновлено о ' + new Date().toLocaleTimeString('uk-UA', { hour: '2-digit', minute: '2-digit' });
+    }
+
+    document.getElementById('refreshBtn').addEventListener('click', loadAll);
+    setInterval(loadAll, AUTO_REFRESH_MINUTES * 60 * 1000);
+    loadAll();
+  </script>
+</body>
+</html>
