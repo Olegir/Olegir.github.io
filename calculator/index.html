@@ -163,15 +163,17 @@
   <script>
     // ---------- 1. ДАНІ: тарифи й ціни. Міняй цифри тут ----------
     const TARIFFS = [
-      { id: "day",     name: "Гостьовий день",               price: 25$,  unit: "day" },
-      { id: "flex",    name: "Нефіксоване місце (місяць)",   price: 300$, unit: "month" },
-      { id: "fixed",   name: "Фіксоване місце (місяць)",     price: 325$, unit: "month" },
-      { id: "meeting", name: "Переговорна кімната",          price: 40$,  unit: "hour" },
+      { id: "day",     name: "Гостьовий день",               price: 25,  unit: "day" },
+      { id: "flex",    name: "Нефіксоване місце (місяць)",   price: 300, unit: "month" },
+      { id: "fixed",   name: "Фіксоване місце (місяць)",     price: 325, unit: "month" },
+      { id: "meeting", name: "Переговорна кімната",          price: 40,  unit: "hour" },
     ];
 
     // Додаткові послуги: ціна за кожну одиницю часу (день / місяць / годину)
     const EXTRAS = [
-      
+      { id: "locker", name: "Особиста шафка",   price: { day: 0,  month: 0, hour: 0 } },
+      { id: "coffee", name: "Безлімітна кава",  price: { day: 0,  month: 0, hour: 40 } },
+
     ];
 
     // Знижки: якщо кількість ≥ min, то мінус percent відсотків від тарифу
