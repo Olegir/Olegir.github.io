@@ -1,0 +1,402 @@
+<!DOCTYPE html>
+<html lang="uk">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Бронювання переговорок — Креативний Квартал</title>
+
+  <!-- ===== СТИЛІ (CSS) ===== -->
+  <style>
+    :root {
+      --bg: #1e2a48;
+      --card: #26355a;
+      --text: #f5f5f5;
+      --muted: #a9b4cc;
+      --accent: #ef8061;
+      --line: rgba(255, 255, 255, 0.1);
+      --mine: #7ee2a8;
+      --busy: #4a5a85;
+      --bad: #ff8a8a;
+    }
+    * { box-sizing: border-box; }
+    [hidden] { display: none !important; }
+    body {
+      margin: 0;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      background: var(--bg); color: var(--text); line-height: 1.5;
+      padding: 32px 16px 64px;
+    }
+    .wrap { max-width: 900px; margin: 0 auto; }
+    .back { color: var(--muted); text-decoration: none; font-size: 15px; }
+    h1 { font-size: 32px; line-height: 1.2; margin: 20px 0 6px; }
+    .subtitle { color: var(--muted); margin: 0 0 24px; }
+    .card { background: var(--card); border-radius: 20px; padding: 24px; margin-bottom: 20px; }
+    h2 { font-size: 18px; margin: 0 0 14px; }
+
+    input, select, button { font: inherit; }
+    input, select {
+      width: 100%; height: 46px; border-radius: 12px; border: 2px solid var(--line);
+      background: transparent; color: var(--text); padding: 0 12px; margin-bottom: 12px;
+    }
+    select option { color: #000; }
+    .btn {
+      height: 46px; padding: 0 18px; border-radius: 12px; border: 0; cursor: pointer;
+      background: var(--accent); color: #1e2a48; font-weight: 600;
+    }
+    .btn.ghost { background: transparent; color: var(--text); border: 2px solid var(--line); }
+    .btn.small { height: 34px; padding: 0 12px; font-size: 14px; }
+    .row { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; }
+    .msg { margin-top: 10px; font-size: 14px; }
+    .msg.error { color: var(--bad); }
+    .msg.ok { color: var(--mine); }
+    .muted { color: var(--muted); }
+
+    /* Верхня панель після входу */
+    .topbar { display: flex; justify-content: space-between; align-items: center; gap: 10px; flex-wrap: wrap; margin-bottom: 16px; }
+    .daynav { display: flex; align-items: center; gap: 8px; }
+    .daynav strong { min-width: 190px; text-align: center; }
+
+    /* Розклад: рядки — час, колонки — кімнати */
+    .schedule { overflow: auto; max-height: 560px; border-radius: 14px; border: 1px solid var(--line); }
+    table { border-collapse: collapse; width: 100%; min-width: 560px; }
+    th, td { border-bottom: 1px solid var(--line); padding: 0; }
+    thead th {
+      position: sticky; top: 0; background: var(--card); z-index: 2;
+      font-size: 13px; font-weight: 600; padding: 10px 6px; text-align: center;
+    }
+    thead th small { display: block; color: var(--muted); font-weight: 400; }
+    td.time { width: 60px; color: var(--muted); font-size: 12px; text-align: center; white-space: nowrap; }
+    td.slot { height: 34px; border-left: 1px solid var(--line); }
+    .slot button {
+      width: 100%; height: 100%; min-height: 34px; border: 0; background: transparent;
+      color: var(--muted); cursor: pointer; font-size: 12px;
+    }
+    .slot button:hover { background: rgba(239, 128, 97, 0.18); color: var(--text); }
+    .slot.past button { cursor: default; opacity: 0.35; }
+    .slot.past button:hover { background: transparent; }
+    .slot.busy { background: var(--busy); font-size: 12px; padding: 0 6px; overflow: hidden; }
+    .slot.mine { background: rgba(126, 226, 168, 0.25); }
+    .slot .who { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; display: block; }
+
+    /* Мої бронювання */
+    .booking { display: flex; justify-content: space-between; align-items: center; gap: 10px; padding: 10px 0; border-bottom: 1px solid var(--line); }
+    .booking:last-child { border-bottom: 0; }
+
+    /* Вікно бронювання */
+    dialog {
+      border: 0; border-radius: 20px; padding: 24px; width: min(420px, 92vw);
+      background: var(--card); color: var(--text);
+    }
+    dialog::backdrop { background: rgba(0, 0, 0, 0.5); }
+    label { display: block; font-size: 14px; color: var(--muted); margin-bottom: 6px; }
+  </style>
+
+  <!-- Бібліотека Supabase з інтернету -->
+  <script type="importmap">
+    { "imports": { "@supabase/supabase-js": "https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/+esm" } }
+  </script>
+</head>
+
+<body>
+  <!-- ===== HTML ===== -->
+  <div class="wrap">
+    <a href="../" class="back">← До портфоліо</a>
+    <h1>Бронювання переговорок</h1>
+    <p class="subtitle">Креативний Квартал · для резидентів · максимум 2 години</p>
+
+    <!-- Екран входу -->
+    <section class="card" id="authCard" hidden>
+      <h2>Вхід</h2>
+      <form id="authForm">
+        <input type="email" id="email" placeholder="Email" required autocomplete="email">
+        <input type="password" id="password" placeholder="Пароль (мінімум 6 символів)" required minlength="6" autocomplete="current-password">
+        <div class="row">
+          <button class="btn" type="submit">Увійти</button>
+          <button class="btn ghost" type="button" id="signupBtn">Зареєструватися</button>
+        </div>
+        <p class="msg" id="authMsg"></p>
+      </form>
+    </section>
+
+    <!-- Не резидент -->
+    <section class="card" id="notResident" hidden>
+      <h2>Доступ лише для резидентів</h2>
+      <p class="muted">Твого email ще немає у списку резидентів. Звернись до адміністратора коворкінгу, щоб тебе додали.</p>
+      <button class="btn ghost" id="logoutBtn2">Вийти</button>
+    </section>
+
+    <!-- Основний екран -->
+    <div id="app" hidden>
+      <div class="topbar">
+        <span class="muted" id="whoami"></span>
+        <div class="row">
+          <button class="btn ghost small" id="refreshBtn">↻ Оновити</button>
+          <button class="btn ghost small" id="logoutBtn">Вийти</button>
+        </div>
+      </div>
+
+      <section class="card">
+        <div class="topbar">
+          <h2 style="margin:0">Розклад</h2>
+          <div class="daynav">
+            <button class="btn ghost small" id="prevDay">←</button>
+            <strong id="dayLabel"></strong>
+            <button class="btn ghost small" id="nextDay">→</button>
+          </div>
+        </div>
+        <div class="schedule" id="schedule"></div>
+        <p class="muted" style="font-size:13px;margin-top:10px">Натисни на вільний час, щоб забронювати. Зелене — твої бронювання.</p>
+      </section>
+
+      <section class="card">
+        <h2>Мої бронювання</h2>
+        <div id="myBookings"></div>
+      </section>
+    </div>
+  </div>
+
+  <!-- Вікно створення бронювання -->
+  <dialog id="bookDialog">
+    <h2>Нове бронювання</h2>
+    <form id="bookForm">
+      <label>Кімната</label>
+      <select id="bRoom"></select>
+      <label>Початок</label>
+      <input type="datetime-local" id="bStart" step="1800" required>
+      <label>Тривалість</label>
+      <select id="bDuration">
+        <option value="30">30 хвилин</option>
+        <option value="60" selected>1 година</option>
+        <option value="90">1,5 години</option>
+        <option value="120">2 години</option>
+      </select>
+      <label>Назва зустрічі (необов'язково)</label>
+      <input type="text" id="bTitle" maxlength="60" placeholder="Наприклад, зустріч з клієнтом">
+      <div class="row">
+        <button class="btn" type="submit">Забронювати</button>
+        <button class="btn ghost" type="button" id="cancelDialog">Скасувати</button>
+      </div>
+      <p class="msg" id="bookMsg"></p>
+    </form>
+  </dialog>
+
+  <!-- ===== JAVASCRIPT ===== -->
+  <script type="module">
+    import { createClient } from '@supabase/supabase-js';
+
+    // ---------- 1. ПІДКЛЮЧЕННЯ ДО SUPABASE ----------
+    // Ці два значення публічні: дані захищають правила (policy) у базі.
+    const SUPABASE_URL = 'https://nyvgwyonfvqupicvavmk.supabase.co';
+    const SUPABASE_KEY = 'sb_publishable_PcsLcyjCuNKJwrC0yoEIRQ_R9m1ERto';
+    const db = createClient(SUPABASE_URL, SUPABASE_KEY);
+
+    const SLOT_MINUTES = 30;        // крок розкладу
+    const $ = id => document.getElementById(id);
+
+    // ---------- 2. СТАН ----------
+    let user = null;                // хто увійшов
+    let rooms = [];                 // список кімнат з бази
+    let bookings = [];              // бронювання на вибраний день
+    let day = startOfDay(new Date());
+
+    // ---------- 3. ДОПОМІЖНІ ФУНКЦІЇ ДЛЯ ДАТ ----------
+    function startOfDay(d) { const x = new Date(d); x.setHours(0, 0, 0, 0); return x; }
+    function addMinutes(d, m) { return new Date(d.getTime() + m * 60000); }
+    function hhmm(d) { return d.toLocaleTimeString('uk-UA', { hour: '2-digit', minute: '2-digit' }); }
+    function dayName(d) { return d.toLocaleDateString('uk-UA', { weekday: 'short', day: 'numeric', month: 'long' }); }
+    // Формат для поля datetime-local: 2026-11-13T15:30
+    function toLocalInput(d) {
+      const p = n => String(n).padStart(2, '0');
+      return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}T${p(d.getHours())}:${p(d.getMinutes())}`;
+    }
+
+    // ---------- 4. ВХІД І РЕЄСТРАЦІЯ ----------
+    $('authForm').addEventListener('submit', async e => {
+      e.preventDefault();
+      const { error } = await db.auth.signInWithPassword({ email: $('email').value, password: $('password').value });
+      $('authMsg').className = 'msg error';
+      $('authMsg').textContent = error ? 'Не вдалося увійти: перевір email і пароль.' : '';
+    });
+
+    $('signupBtn').addEventListener('click', async () => {
+      const email = $('email').value, password = $('password').value;
+      if (!email || password.length < 6) {
+        $('authMsg').className = 'msg error';
+        $('authMsg').textContent = 'Введи email і пароль (мінімум 6 символів).';
+        return;
+      }
+      const { data, error } = await db.auth.signUp({ email, password });
+      if (error) {
+        $('authMsg').className = 'msg error';
+        $('authMsg').textContent = 'Помилка реєстрації: ' + error.message;
+      } else if (!data.session) {
+        $('authMsg').className = 'msg ok';
+        $('authMsg').textContent = 'Перевір пошту й підтвердь email, потім увійди.';
+      }
+    });
+
+    const logout = () => db.auth.signOut();
+    $('logoutBtn').addEventListener('click', logout);
+    $('logoutBtn2').addEventListener('click', logout);
+
+    // Supabase повідомляє, коли користувач увійшов або вийшов
+    db.auth.onAuthStateChange((_event, session) => {
+      user = session?.user ?? null;
+      setTimeout(showScreen, 0);
+    });
+
+    // ---------- 5. ЯКИЙ ЕКРАН ПОКАЗАТИ ----------
+    async function showScreen() {
+      $('authCard').hidden = $('notResident').hidden = $('app').hidden = true;
+      if (!user) { $('authCard').hidden = false; return; }
+
+      // Питаємо базу: чи є цей email у списку резидентів?
+      const { data: isResident } = await db.rpc('is_resident');
+      if (!isResident) { $('notResident').hidden = false; return; }
+
+      $('whoami').textContent = 'Ти увійшов як ' + user.email;
+      $('app').hidden = false;
+      if (!rooms.length) await loadRooms();
+      await loadDay();
+    }
+
+    // ---------- 6. ЧИТАЄМО ДАНІ З БАЗИ ----------
+    async function loadRooms() {
+      const { data, error } = await db.from('rooms').select('*').order('id');
+      if (error) { console.error(error); return; }
+      rooms = data;
+      $('bRoom').innerHTML = rooms.map(r => `<option value="${r.id}">${r.name}</option>`).join('');
+    }
+
+    async function loadDay() {
+      const from = day, to = addMinutes(day, 24 * 60);
+      // Беремо всі бронювання, які перетинаються з цим днем
+      const { data, error } = await db.from('bookings')
+        .select('*')
+        .lt('starts_at', to.toISOString())
+        .gt('ends_at', from.toISOString())
+        .order('starts_at');
+      if (error) { console.error(error); $('schedule').innerHTML = '<p class="msg error" style="padding:12px">Не вдалося завантажити розклад.</p>'; return; }
+      bookings = data;
+      renderSchedule();
+      loadMine();
+    }
+
+    // ---------- 7. МАЛЮЄМО РОЗКЛАД ----------
+    function renderSchedule() {
+      $('dayLabel').textContent = dayName(day);
+      const now = new Date();
+      let html = '<table><thead><tr><th></th>';
+      for (const r of rooms) {
+        const kind = r.name.split(' ')[0];
+        html += `<th>${kind}<small>до ${r.capacity} осіб</small></th>`;
+      }
+      html += '</tr></thead><tbody>';
+
+      for (let m = 0; m < 24 * 60; m += SLOT_MINUTES) {
+        const t = addMinutes(day, m);
+        html += `<tr><td class="time">${hhmm(t)}</td>`;
+        for (const r of rooms) {
+          // Чи зайнята ця кімната в цей момент?
+          const b = bookings.find(x => x.room_id === r.id && new Date(x.starts_at) <= t && t < new Date(x.ends_at));
+          if (b) {
+            const mine = b.user_id === user.id;
+            const isFirst = m === 0 || addMinutes(t, -SLOT_MINUTES) < new Date(b.starts_at);   // підпис лише в першій клітинці
+            const who = b.title || b.user_email.split('@')[0];
+            html += `<td class="slot busy ${mine ? 'mine' : ''}" title="${hhmm(new Date(b.starts_at))}–${hhmm(new Date(b.ends_at))} · ${who}">
+                       ${isFirst ? `<span class="who">${who}</span>` : ''}</td>`;
+          } else {
+            const past = addMinutes(t, SLOT_MINUTES) <= now;
+            html += `<td class="slot ${past ? 'past' : ''}"><button ${past ? 'disabled' : ''} data-room="${r.id}" data-time="${t.toISOString()}">+</button></td>`;
+          }
+        }
+        html += '</tr>';
+      }
+      html += '</tbody></table>';
+      $('schedule').innerHTML = html;
+
+      // Прокручуємо до поточної години, якщо дивимось на сьогодні
+      if (startOfDay(now).getTime() === day.getTime()) {
+        const rowHeight = 35;
+        $('schedule').scrollTop = Math.max(0, (now.getHours() * 2 - 1) * rowHeight);
+      }
+    }
+
+    // Клік по вільній клітинці відкриває вікно бронювання
+    $('schedule').addEventListener('click', e => {
+      const btn = e.target.closest('button[data-room]');
+      if (!btn) return;
+      $('bRoom').value = btn.dataset.room;
+      $('bStart').value = toLocalInput(new Date(btn.dataset.time));
+      $('bTitle').value = '';
+      $('bookMsg').textContent = '';
+      $('bookDialog').showModal();
+    });
+    $('cancelDialog').addEventListener('click', () => $('bookDialog').close());
+
+    // ---------- 8. СТВОРЮЄМО БРОНЮВАННЯ ----------
+    $('bookForm').addEventListener('submit', async e => {
+      e.preventDefault();
+      const start = new Date($('bStart').value);
+      const end = addMinutes(start, Number($('bDuration').value));
+      const msg = $('bookMsg');
+      msg.className = 'msg error';
+
+      if (start < addMinutes(new Date(), -SLOT_MINUTES)) { msg.textContent = 'Не можна бронювати в минулому.'; return; }
+
+      const { error } = await db.from('bookings').insert({
+        room_id: Number($('bRoom').value),
+        title: $('bTitle').value.trim() || null,
+        starts_at: start.toISOString(),
+        ends_at: end.toISOString(),
+      });
+
+      if (error) {
+        // Пояснюємо помилки бази людською мовою
+        if (error.code === '23P01') msg.textContent = 'Цей час уже зайнятий. Вибери інший.';
+        else if (error.code === '23514') msg.textContent = 'Максимальна тривалість — 2 години.';
+        else if (error.code === '42501') msg.textContent = 'Немає доступу: бронювати можуть лише резиденти.';
+        else msg.textContent = 'Помилка: ' + error.message;
+        return;
+      }
+      $('bookDialog').close();
+      day = startOfDay(start);
+      loadDay();
+    });
+
+    // ---------- 9. МОЇ БРОНЮВАННЯ ТА СКАСУВАННЯ ----------
+    async function loadMine() {
+      const { data, error } = await db.from('bookings')
+        .select('*')
+        .eq('user_id', user.id)
+        .gt('ends_at', new Date().toISOString())
+        .order('starts_at');
+      const box = $('myBookings');
+      if (error || !data.length) { box.innerHTML = '<p class="muted">Майбутніх бронювань немає.</p>'; return; }
+      box.innerHTML = data.map(b => {
+        const room = rooms.find(r => r.id === b.room_id)?.name ?? '';
+        const s = new Date(b.starts_at), en = new Date(b.ends_at);
+        return `<div class="booking">
+                  <div><strong>${room}</strong><br>
+                    <span class="muted">${dayName(s)}, ${hhmm(s)}–${hhmm(en)}${b.title ? ' · ' + b.title : ''}</span></div>
+                  <button class="btn ghost small" data-cancel="${b.id}">Скасувати</button>
+                </div>`;
+      }).join('');
+    }
+
+    $('myBookings').addEventListener('click', async e => {
+      const id = e.target.dataset.cancel;
+      if (!id || !confirm('Скасувати це бронювання?')) return;
+      const { error } = await db.from('bookings').delete().eq('id', id);
+      if (error) alert('Не вдалося скасувати: ' + error.message);
+      loadDay();
+    });
+
+    // ---------- 10. НАВІГАЦІЯ ПО ДНЯХ І ОНОВЛЕННЯ ----------
+    $('prevDay').addEventListener('click', () => { day = startOfDay(addMinutes(day, -22 * 60)); loadDay(); });
+    $('nextDay').addEventListener('click', () => { day = startOfDay(addMinutes(day, 26 * 60)); loadDay(); });
+    $('refreshBtn').addEventListener('click', loadDay);
+    setInterval(() => { if (user && !$('app').hidden) loadDay(); }, 30000);  // автооновлення кожні 30 с
+  </script>
+</body>
+</html>
