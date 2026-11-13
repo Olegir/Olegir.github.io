@@ -8,6 +8,71 @@
   <meta name="description" content="Портфоліо Олега: проєкти, зроблені з вайбкодингом.">
 
   <!-- ===== СТИЛІ (CSS) — як сайт виглядає ===== -->
+       /* =====================================================
+       ПОКРАЩЕННЯ: фон, що переливається, і клікабельні картки
+       ===================================================== */
+
+    /* Кольори фону. Для біло-чорного варіанту дивись коментар нижче */
+    :root {
+      --g1: #0b0b0d;   /* майже чорний */
+      --g2: #1d130e;   /* темно-коричневий */
+      --g3: #4a2111;   /* глибокий помаранчевий */
+      --g4: #0f0f12;   /* чорний */
+      --card: rgba(255, 255, 255, 0.06);   /* напівпрозорі картки */
+      /* Біло-чорний варіант: --g1:#000; --g2:#1c1c1c; --g3:#3a3a3a; --g4:#0a0a0a; */
+    }
+
+    /* Фон, що повільно переливається */
+    body {
+      background: linear-gradient(-45deg, var(--g1), var(--g2), var(--g3), var(--g4));
+      background-size: 400% 400%;
+      background-attachment: fixed;
+      animation: bgFlow 18s ease infinite;
+    }
+    @keyframes bgFlow {
+      0%   { background-position: 0% 50%; }
+      50%  { background-position: 100% 50%; }
+      100% { background-position: 0% 50%; }
+    }
+
+    /* Верхнє меню — напівпрозоре, щоб фон просвічував */
+    header { background: rgba(10, 10, 12, 0.55); }
+
+    /* Картки — «скло» з розмиттям */
+    .project {
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      backdrop-filter: blur(10px);
+      transition: transform 0.25s ease, box-shadow 0.25s ease, border-color 0.25s ease;
+    }
+
+    /* Клікабельні картки (ті, що є посиланнями) */
+    a.project { position: relative; cursor: pointer; }
+    a.project::after {
+      content: "Відкрити →";
+      position: absolute; right: 24px; bottom: 24px;
+      font-size: 14px; font-weight: 600; color: var(--accent);
+      opacity: 0.6; transition: opacity 0.25s, transform 0.25s;
+    }
+    a.project:hover,
+    a.project:focus-visible {
+      transform: translateY(-6px);
+      border-color: var(--accent);
+      box-shadow: 0 14px 40px rgba(239, 128, 97, 0.25);
+      outline: none;
+    }
+    a.project:hover::after,
+    a.project:focus-visible::after { opacity: 1; transform: translateX(4px); }
+    a.project:active { transform: translateY(-2px); }
+
+    /* Кнопка «Дивитися проєкти» теж реагує */
+    .button { transition: transform 0.2s, box-shadow 0.2s; }
+    .button:hover { transform: translateY(-2px); box-shadow: 0 10px 30px rgba(239, 128, 97, 0.35); }
+
+    /* Повага до тих, кому анімація заважає (налаштування системи) */
+    @media (prefers-reduced-motion: reduce) {
+      body { animation: none; }
+      .project, a.project::after, .button { transition: none; }
+    }
   <style>
     /* Кольори сайту. Зміни тут — і вони зміняться всюди */
     :root {
